@@ -353,7 +353,7 @@ with col_main:
         sangria = st.selectbox("Sangria (bleed)", [3, 5], index=0,
                                format_func=lambda x: f"{x} mm {'(padrão BR)' if x==3 else '(offset/exigente)'}")
     with c6:
-        lombada_manual = st.number_input("Lombada manual (mm)", min_value=1.0, max_value=100.0,
+        lombada_manual = st.number_input("Lombada manual (mm)", min_value=0.0, max_value=100.0,
                                           value=0.0, step=0.5,
                                           help="Deixe 0 para calcular automaticamente")
 
