@@ -151,7 +151,7 @@ ESPESSURA_PAPEL = {
 def calcular_lombada(num_paginas: int, tipo_papel: str) -> float:
     espessura = ESPESSURA_PAPEL[tipo_papel]
     lombada = (num_paginas / 2) * espessura
-    return max(lombada, 5.0)  # mínimo 5mm
+    return lombada  # sem correção automática — aviso exibido na UI
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -161,7 +161,7 @@ def calcular_lombada(num_paginas: int, tipo_papel: str) -> float:
 COR_MARCAS  = CMYKColor(0, 0, 0, 1)
 COR_DOBRA   = CMYKColor(0.7, 0, 0, 0)
 COR_SANGRIA = CMYKColor(1, 0, 1, 0)
-COR_KDP     = CMYKColor(0, 0, 0.15, 0.05)
+
 
 
 def preparar_imagem_bytes(img_bytes: bytes, largura_mm: float, altura_mm: float, dpi=300) -> Optional[str]:
@@ -191,7 +191,7 @@ def preparar_imagem_bytes(img_bytes: bytes, largura_mm: float, altura_mm: float,
 def gerar_pdf(
     largura_mm, altura_mm, lombada_mm, sangria_mm,
     img_capa_bytes, img_contra_bytes, img_lombada_bytes,
-    kdp=False, marcas=True, guias=True, linha_sangria=True, legendas=True,
+    marcas=True, guias=True, linha_sangria=True, legendas=True,
 ) -> bytes:
     """Gera o PDF e retorna os bytes para download."""
 
@@ -284,21 +284,6 @@ def gerar_pdf(
             c.line(px + sx*afst, py, px + sx*(afst+comp), py)
             c.line(px, py + sy*afst, px, py + sy*(afst+comp))
 
-    # Reserva KDP
-    if kdp:
-        bw, bh = 50*mm, 30*mm
-        bx = (x_lombada - 50 - 5)*mm
-        by = (sangria_mm + 5)*mm
-        c.setFillColor(COR_KDP)
-        c.setStrokeColor(CMYKColor(0,0,0,0.3))
-        c.setLineWidth(0.5)
-        c.rect(bx, by, bw, bh, fill=1, stroke=1)
-        c.setFont("Helvetica-Bold", 5.5)
-        c.setFillColor(CMYKColor(0,0,0,0.6))
-        c.drawCentredString(bx+bw/2, by+bh/2+3, "RESERVADO — KDP BARCODE")
-        c.setFont("Helvetica", 4.5)
-        c.drawCentredString(bx+bw/2, by+bh/2-4, "50×30mm — DEIXAR BRANCO")
-
     # Legendas
     if legendas:
         c.setFont("Helvetica", 4)
@@ -358,13 +343,11 @@ with col_main:
                                           value=0.0, step=0.5,
                                           help="Deixe 0 para calcular automaticamente")
 
-    col_opt1, col_opt2, col_opt3 = st.columns(3)
+    col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
-        marcas_corte = st.checkbox("Marcas de corte", value=True)
-    with col_opt2:
         guia_lombada = st.checkbox("Guia da lombada", value=True)
-    with col_opt3:
-        kdp_barcode  = st.checkbox("Reserva KDP", value=False)
+    with col_opt2:
+        linha_sangria_op = st.checkbox("Linha de sangria", value=True)
 
     # ── IMAGENS
     st.markdown('<div class="section-header">🖼️ Imagens</div>', unsafe_allow_html=True)
@@ -458,11 +441,10 @@ if gerar:
             img_capa_bytes=img_capa_bytes,
             img_contra_bytes=img_contra_bytes,
             img_lombada_bytes=img_lomb_bytes,
-            kdp=False,  # Sempre False para PDF final
-            marcas=False,  # Sempre False para PDF final
-            guias=False,  # Sempre False para PDF final
-            linha_sangria=False,  # Sempre False para PDF final
-            legendas=False,  # Sempre False para PDF final
+            marcas=False,
+            guias=guia_lombada,
+            linha_sangria=linha_sangria_op,
+            legendas=True,
         )
 
     st.markdown(f"""
