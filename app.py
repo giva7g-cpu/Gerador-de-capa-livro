@@ -191,7 +191,7 @@ def preparar_imagem_bytes(img_bytes: bytes, largura_mm: float, altura_mm: float,
 def gerar_pdf(
     largura_mm, altura_mm, lombada_mm, sangria_mm,
     img_capa_bytes, img_contra_bytes, img_lombada_bytes,
-    marcas=True, guias=True, linha_sangria=True, legendas=True,
+    marcas=True, guias=True, linha_sangria=True,
 ) -> bytes:
     """Gera o PDF e retorna os bytes para download."""
 
@@ -283,14 +283,6 @@ def gerar_pdf(
         ]:
             c.line(px + sx*afst, py, px + sx*(afst+comp), py)
             c.line(px, py + sy*afst, px, py + sy*(afst+comp))
-
-    # Legendas
-    if legendas:
-        c.setFont("Helvetica", 4)
-        c.setFillColor(CMYKColor(0,0,0,0.35))
-        info = (f"PDF: {larg_total:.1f}×{alt_total:.1f}mm  |  "
-                f"SANGRIA: {sangria_mm}mm  |  LOMBADA: {lombada_mm:.1f}mm")
-        c.drawString(sangria_mm*mm, (sangria_mm*0.3)*mm, info)
 
     c.save()
 
@@ -444,7 +436,6 @@ if gerar:
             marcas=False,
             guias=guia_lombada,
             linha_sangria=linha_sangria_op,
-            legendas=True,
         )
 
     st.markdown(f"""
