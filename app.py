@@ -13,26 +13,11 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 import streamlit as st
-from PIL import Image, ImageCms
+from PIL import Image
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
 from reportlab.lib.colors import CMYKColor, white
-
-# Perfis ICC para conversão de cor precisa (evita tom avermelhado)
-_ICC_SRGB   = "/usr/share/texlive/texmf-dist/tex/generic/colorprofiles/sRGB.icc"
-_ICC_FOGRA  = "/usr/share/texlive/texmf-dist/tex/generic/colorprofiles/FOGRA39L_coated.icc"
-
-def _build_rgb_to_cmyk_transform():
-    try:
-        return ImageCms.buildTransform(
-            _ICC_SRGB, _ICC_FOGRA, "RGB", "CMYK",
-            renderingIntent=ImageCms.Intent.PERCEPTUAL,
-        )
-    except Exception:
-        return None
-
-_RGB_TO_CMYK = _build_rgb_to_cmyk_transform()
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  CONFIGURAÇÃO DA PÁGINA
@@ -180,28 +165,34 @@ COR_SANGRIA = CMYKColor(1, 0, 1, 0)
 
 
 def preparar_imagem_bytes(img_bytes: bytes, largura_mm: float, altura_mm: float, dpi=300) -> Optional[str]:
-    """Converte bytes de imagem upload para arquivo temporário CMYK 300DPI."""
+    """Prepara imagem para inserção no PDF via ReportLab.
+
+    Salva como PNG em modo RGB — evita o bug do ReportLab que insere
+    /Decode [1 0 1 0 1 0 1 0] em JPEG CMYK, o que inverte todos os canais
+    e causa tom avermelhado/cor errada no PDF gerado.
+    """
     try:
         img = Image.open(io.BytesIO(img_bytes))
         px_w = round((largura_mm / 25.4) * dpi)
         px_h = round((altura_mm / 25.4) * dpi)
 
+        # Achatar transparência (RGBA → RGB com fundo branco)
         if img.mode == "RGBA":
             fundo = Image.new("RGB", img.size, (255, 255, 255))
             fundo.paste(img, mask=img.split()[3])
             img = fundo
-        if img.mode != "CMYK":
-            if img.mode not in ("RGB",):
-                img = img.convert("RGB")
-            if _RGB_TO_CMYK:
-                img = ImageCms.applyTransform(img, _RGB_TO_CMYK)
-            else:
-                img = img.convert("CMYK")
+
+        # Garantir modo RGB — NÃO converter para CMYK aqui.
+        # O ReportLab adiciona /Decode [1 0 …] em JPEG CMYK, invertendo
+        # todos os canais e resultando em cores erradas no visualizador.
+        if img.mode != "RGB":
+            img = img.convert("RGB")
 
         img = img.resize((px_w, px_h), Image.LANCZOS)
 
-        tmp = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
-        img.save(tmp.name, format="JPEG", quality=95, dpi=(dpi, dpi))
+        # PNG mantém qualidade total e não sofre do problema do Decode CMYK
+        tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+        img.save(tmp.name, format="PNG", dpi=(dpi, dpi))
         return tmp.name
     except Exception as e:
         st.error(f"Erro ao processar imagem: {e}")
