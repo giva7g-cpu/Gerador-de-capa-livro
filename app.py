@@ -360,6 +360,13 @@ with col_main:
     with col_opt2:
         linha_sangria_op = st.checkbox("Linha de sangria", value=True)
 
+    sangria_incluida = st.checkbox(
+        "📐 As medidas já incluem sangria",
+        value=False,
+        help="Marque quando a gráfica pede o arquivo no tamanho final com sangria já somada. "
+             "O app não vai adicionar sangria extra — as dimensões informadas serão usadas como estão."
+    )
+
     # ── IMAGENS
     st.markdown('<div class="section-header">🖼️ Imagens</div>', unsafe_allow_html=True)
     st.markdown('<p class="upload-hint">Formatos aceitos: JPG, PNG, WEBP · Recomendado: 300 DPI ou maior</p>',
@@ -373,8 +380,10 @@ with col_main:
     # ── CÁLCULOS
     lombada_calc = calcular_lombada(num_paginas, tipo_papel)
     lombada_final = lombada_manual if lombada_manual > 0 else lombada_calc
-    larg_total = (largura * 2) + lombada_final + (sangria * 2)
-    alt_total  = altura + (sangria * 2)
+    # Se as medidas já incluem sangria, o app não soma nada
+    sangria_efetiva = 0 if sangria_incluida else sangria
+    larg_total = (largura * 2) + lombada_final + (sangria_efetiva * 2)
+    alt_total  = altura + (sangria_efetiva * 2)
 
 with col_preview:
     # ── RESUMO TÉCNICO
@@ -398,7 +407,7 @@ with col_preview:
       </div>
     </div>
     <div class="metric-card">
-      <div class="metric-label">PDF Total (com sangria)</div>
+      <div class="metric-label">PDF Total {'(sangria já inclusa)' if sangria_incluida else '(com sangria)'}</div>
       <div class="metric-value">{larg_total:.2f} × {alt_total:.2f} mm</div>
     </div>
     <div class="metric-card">
@@ -448,7 +457,7 @@ if gerar:
             largura_mm=largura,
             altura_mm=altura,
             lombada_mm=lombada_final,
-            sangria_mm=sangria,
+            sangria_mm=sangria_efetiva,
             img_capa_bytes=img_capa_bytes,
             img_contra_bytes=img_contra_bytes,
             img_lombada_bytes=img_lomb_bytes,
