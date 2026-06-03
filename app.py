@@ -464,7 +464,7 @@ if gerar:
             marcas=False,
             guias=guia_lombada,
             linha_sangria=linha_sangria_op,
-            legendas=True,
+            legendas=False,
         )
 
     st.markdown(f"""
