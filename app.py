@@ -13,11 +13,26 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 import streamlit as st
-from PIL import Image
+from PIL import Image, ImageCms
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
 from reportlab.lib.colors import CMYKColor, white
+
+# Perfis ICC para conversão de cor precisa (evita tom avermelhado)
+_ICC_SRGB   = "/usr/share/texlive/texmf-dist/tex/generic/colorprofiles/sRGB.icc"
+_ICC_FOGRA  = "/usr/share/texlive/texmf-dist/tex/generic/colorprofiles/FOGRA39L_coated.icc"
+
+def _build_rgb_to_cmyk_transform():
+    try:
+        return ImageCms.buildTransform(
+            _ICC_SRGB, _ICC_FOGRA, "RGB", "CMYK",
+            renderingIntent=ImageCms.Intent.PERCEPTUAL,
+        )
+    except Exception:
+        return None
+
+_RGB_TO_CMYK = _build_rgb_to_cmyk_transform()
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  CONFIGURAÇÃO DA PÁGINA
@@ -176,7 +191,12 @@ def preparar_imagem_bytes(img_bytes: bytes, largura_mm: float, altura_mm: float,
             fundo.paste(img, mask=img.split()[3])
             img = fundo
         if img.mode != "CMYK":
-            img = img.convert("CMYK")
+            if img.mode not in ("RGB",):
+                img = img.convert("RGB")
+            if _RGB_TO_CMYK:
+                img = ImageCms.applyTransform(img, _RGB_TO_CMYK)
+            else:
+                img = img.convert("CMYK")
 
         img = img.resize((px_w, px_h), Image.LANCZOS)
 
@@ -191,7 +211,7 @@ def preparar_imagem_bytes(img_bytes: bytes, largura_mm: float, altura_mm: float,
 def gerar_pdf(
     largura_mm, altura_mm, lombada_mm, sangria_mm,
     img_capa_bytes, img_contra_bytes, img_lombada_bytes,
-    marcas=True, guias=True, linha_sangria=True,
+    marcas=True, guias=True, linha_sangria=True, legendas=True,
 ) -> bytes:
     """Gera o PDF e retorna os bytes para download."""
 
@@ -283,6 +303,14 @@ def gerar_pdf(
         ]:
             c.line(px + sx*afst, py, px + sx*(afst+comp), py)
             c.line(px, py + sy*afst, px, py + sy*(afst+comp))
+
+    # Legendas
+    if legendas:
+        c.setFont("Helvetica", 4)
+        c.setFillColor(CMYKColor(0,0,0,0.35))
+        info = (f"PDF: {larg_total:.1f}×{alt_total:.1f}mm  |  "
+                f"SANGRIA: {sangria_mm}mm  |  LOMBADA: {lombada_mm:.1f}mm")
+        c.drawString(sangria_mm*mm, (sangria_mm*0.3)*mm, info)
 
     c.save()
 
@@ -436,6 +464,7 @@ if gerar:
             marcas=False,
             guias=guia_lombada,
             linha_sangria=linha_sangria_op,
+            legendas=True,
         )
 
     st.markdown(f"""
